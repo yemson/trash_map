@@ -1,34 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <!--    <fragment-->
+    <!--        android:id="@+id/map_fragment"-->
+    <!--        android:layout_width="match_parent"-->
+    <!--        android:layout_height="match_parent"-->
+    <!--        android:name="com.naver.maps.map.MapFragment"/>-->
+
     <fragment
         android:id="@+id/map_fragment"
+        android:name="com.naver.maps.map.MapFragment"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:name="com.naver.maps.map.MapFragment">
+        android:layout_height="match_parent">
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/trackingPosition"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="end|top"
-            android:src="@drawable/ic_baseline_gps_fixed_24"
-            android:contentDescription="내 위치 추적"
-            android:layout_margin="24dp" />
+            android:layout_gravity="end|bottom"
+            android:orientation="vertical">
 
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="24dp"
-            android:layout_gravity="bottom|right"
-            android:text="쓰레기통 추가"
-            app:icon="@drawable/ic_baseline_add_24"/>
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/trackingPosition"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_margin="24dp"
+                android:contentDescription="내 위치 추적"
+                android:src="@drawable/ic_baseline_gps_fixed_24" />
 
+            <TextView
+                android:id="@+id/markerPosition"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginHorizontal="24dp"
+                android:background="@drawable/bg_address_box"
+                android:elevation="2dp"
+                android:text=""
+                android:gravity="center"/>
+
+            <android.widget.Button
+                android:id="@+id/addTrashCan"
+                android:layout_width="match_parent"
+                android:layout_height="65dp"
+                android:layout_margin="24dp"
+                android:textSize="20dp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_btn_orange_color"
+                android:text="쓰레기통 추가" />
+        </LinearLayout>
     </fragment>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

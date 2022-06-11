@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "54979119685",
+    "project_id": "trash-map-c1d5d",
+    "storage_bucket": "trash-map-c1d5d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:54979119685:android:100273da9ee5256aadb12c",
+        "android_client_info": {
+          "package_name": "com.sf3.trash_map"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "54979119685-3ntq1nqiljreok3el91ucap89umvcpos.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDj2seOBpElW_VcVKxtp34Cu4IspO2h4ZE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "54979119685-3ntq1nqiljreok3el91ucap89umvcpos.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

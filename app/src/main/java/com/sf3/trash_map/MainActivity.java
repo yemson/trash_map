@@ -7,19 +7,33 @@ import androidx.fragment.app.FragmentManager;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.naver.maps.geometry.LatLng;
 import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.OnMapReadyCallback;
 import com.naver.maps.map.UiSettings;
+import com.naver.maps.map.overlay.LocationOverlay;
+import com.naver.maps.map.overlay.Marker;
+import com.naver.maps.map.overlay.OverlayImage;
 import com.naver.maps.map.util.FusedLocationSource;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
@@ -76,17 +90,53 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onMapReady(@NonNull NaverMap naverMap) {
         Log.d( TAG, "onMapReady");
 
-        // 지도상에 마커 표시
-//        Marker marker = new Marker();
-//        marker.setPosition(new LatLng(37.5670135, 126.9783740));
-//        marker.setMap(naverMap);
+        //지도상에 마커 표시
+        Marker marker = new Marker();
+        marker.setPosition(new LatLng(naverMap.getCameraPosition().target.latitude, naverMap.getCameraPosition().target.longitude));
+        marker.setIcon(OverlayImage.fromResource(R.drawable.ic_baseline_push_pin_24));
+        marker.setMap(naverMap);
+
+        TextView makerPosition = (TextView) findViewById(R.id.markerPosition);
+        Button addTrashCan = (Button) findViewById(R.id.addTrashCan);
+
+        naverMap.addOnCameraChangeListener(new NaverMap.OnCameraChangeListener() {
+            @Override
+            public void onCameraChange(int i, boolean b) {
+                marker.setPosition(new LatLng(naverMap.getCameraPosition().target.latitude, naverMap.getCameraPosition().target.longitude));
+                makerPosition.setText("위치 이동 중");
+            }
+        });
+
+        naverMap.addOnCameraIdleListener(new NaverMap.OnCameraIdleListener() {
+            @Override
+            public void onCameraIdle() {
+                marker.setPosition(new LatLng(naverMap.getCameraPosition().target.latitude, naverMap.getCameraPosition().target.longitude));
+                makerPosition.setText(getAddress(naverMap.getCameraPosition().target.latitude, naverMap.getCameraPosition().target.longitude));
+            }
+        });
+
+        addTrashCan.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.d("navermap", new LatLng(naverMap.getCameraPosition().target.latitude, naverMap.getCameraPosition().target.longitude).toString());
+            }
+        });
+
+//        marker.position = LatLng(
+//                naverMap.cameraPosition.target.latitude,
+//                naverMap.cameraPosition.target.longitude
+//        )
+//        marker.icon = OverlayImage.fromResource(R.drawable.ic_location_enroll)
+//        marker.map = naverMap
 
         // NaverMap 객체 받아서 NaverMap 객체에 위치 소스 지정
         mNaverMap = naverMap;
         mNaverMap.setLocationSource(mLocationSource);
 
+        Log.d("navermap", mLocationSource.toString());
+
         UiSettings uiSettings = mNaverMap.getUiSettings();
-        uiSettings.setZoomControlEnabled(false);
+        uiSettings.setZoomControlEnabled(true);
 
         // 권한확인. 결과는 onRequestPermissionsResult 콜백 매서드 호출
         ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_REQUEST_CODE);
@@ -117,4 +167,35 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
     // [END on_start_check_user]
+
+//    private String getAddress(Double lat, Double lng) {
+//        Geocoder geoCoder = new Geocoder(getBaseContext(), Locale.KOREA);
+//        List<Address> address;
+//        String addressResult = "주소를 가져 올 수 없습니다.";
+//        try {
+//            address = geoCoder.getFromLocation(lat, lng, 1) as
+//        }
+//    }
+    private final String getAddress(double lat, double lng) {
+        Geocoder geoCoder = new Geocoder(getBaseContext(), Locale.KOREA);
+        ArrayList address = null;
+        String addressResult = "주소를 가져 올 수 없습니다.";
+
+        try {
+            List var10000 = geoCoder.getFromLocation(lat, lng, 1);
+            if (var10000 == null) {
+                throw new NullPointerException("null cannot be cast to non-null type kotlin.collections.ArrayList<android.location.Address> /* = java.util.ArrayList<android.location.Address> */");
+            }
+
+            address = (ArrayList)var10000;
+            if (address.size() > 0) {
+                String currentLocationAddress = ((Address)address.get(0)).getAddressLine(0).toString();
+                addressResult = currentLocationAddress;
+            }
+        } catch (IOException var9) {
+            var9.printStackTrace();
+        }
+
+        return addressResult;
+    }
 }
