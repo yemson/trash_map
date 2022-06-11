@@ -14,34 +14,51 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
+import com.google.protobuf.Type;
 import com.naver.maps.geometry.LatLng;
 import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.OnMapReadyCallback;
-import com.naver.maps.map.UiSettings;
-import com.naver.maps.map.overlay.LocationOverlay;
+import com.naver.maps.map.UiSettings;;
 import com.naver.maps.map.overlay.Marker;
+import com.naver.maps.map.overlay.Overlay;
 import com.naver.maps.map.overlay.OverlayImage;
 import com.naver.maps.map.util.FusedLocationSource;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+
+import kotlin.collections.MapsKt;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
+    private static ArrayList<Map> mArrayList = new ArrayList<>();
+    private static ArrayList<Marker> markerList = new ArrayList<>();
 
     private static final String TAG = "MainActivity";
 
     // [START declare_auth]
     private FirebaseAuth mAuth;
     // [END declare_auth]
+
+    private FirebaseFirestore mFirestore;
 
     private static final int PERMISSION_REQUEST_CODE = 100;
     private static final String[] PERMISSIONS = {
@@ -84,6 +101,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 mNaverMap.setLocationTrackingMode(LocationTrackingMode.Follow);
             }
         });
+
+        FloatingActionButton refreshButton = findViewById(R.id.refreshBtn);
+        refreshButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                for (int i = 0; i < markerList.size(); i++) {
+                    markerList.get(i).setMap(null);
+                }
+                getMarkerData();
+            }
+        });
+
     }
 
     @Override
@@ -119,6 +148,41 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void onClick(View view) {
                 Log.d("navermap", new LatLng(naverMap.getCameraPosition().target.latitude, naverMap.getCameraPosition().target.longitude).toString());
+
+                FirebaseUser currentUser = mAuth.getCurrentUser();
+                FirebaseFirestore db = mFirestore.getInstance();
+
+                Log.d("firebase", currentUser.getEmail());
+
+                Map<String, Object> docData = new HashMap<>();
+                docData.put("user", currentUser.getUid());
+                docData.put("lat", naverMap.getCameraPosition().target.latitude);
+                docData.put("lng", naverMap.getCameraPosition().target.longitude);
+
+                db.collection("marker")
+                        .add(docData)
+                        .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
+                            @Override
+                            public void onSuccess(DocumentReference documentReference) {
+                                Log.d(TAG, "DocumentSnapshot added with ID: " + documentReference.getId());
+                            }
+                        })
+                        .addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                Log.w(TAG, "Error adding document", e);
+                            }
+                        });
+
+                Marker marker = new Marker();
+                marker.setPosition(new LatLng(naverMap.getCameraPosition().target.latitude, naverMap.getCameraPosition().target.longitude));
+                marker.setIcon(OverlayImage.fromResource(R.drawable.ic_baseline_push_pin_24));
+                marker.setMap(mNaverMap);
+                marker.setOnClickListener(overlay -> {
+                    Toast.makeText(MainActivity.this, currentUser.getUid(), Toast.LENGTH_SHORT).show();
+                    return true;
+                });
+                markerList.add(marker);
             }
         });
 
@@ -136,7 +200,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         Log.d("navermap", mLocationSource.toString());
 
         UiSettings uiSettings = mNaverMap.getUiSettings();
-        uiSettings.setZoomControlEnabled(true);
+        uiSettings.setZoomControlEnabled(false);
+        uiSettings.setCompassEnabled(false);
+        uiSettings.setScaleBarEnabled(false);
+        uiSettings.setLogoGravity(5);
+        uiSettings.setLogoMargin(0, 10, 10, 0);
 
         // 권한확인. 결과는 onRequestPermissionsResult 콜백 매서드 호출
         ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_REQUEST_CODE);
@@ -165,17 +233,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if(currentUser != null){
             //reload();
         }
+        getMarkerData();
     }
     // [END on_start_check_user]
 
-//    private String getAddress(Double lat, Double lng) {
-//        Geocoder geoCoder = new Geocoder(getBaseContext(), Locale.KOREA);
-//        List<Address> address;
-//        String addressResult = "주소를 가져 올 수 없습니다.";
-//        try {
-//            address = geoCoder.getFromLocation(lat, lng, 1) as
-//        }
-//    }
     private final String getAddress(double lat, double lng) {
         Geocoder geoCoder = new Geocoder(getBaseContext(), Locale.KOREA);
         ArrayList address = null;
@@ -197,5 +258,40 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         return addressResult;
+    }
+
+    private void getMarkerData() {
+        FirebaseFirestore db = mFirestore.getInstance();
+        db.collection("marker")
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        // Log.d(TAG, "DocumentSnapshot added with ID: " + task.getResult());
+                        for (QueryDocumentSnapshot document : task.getResult()) {
+                            Log.d(TAG, document.getId() + " => " + document.getData());
+                            mArrayList.add(document.getData());
+                        }
+
+                        for (int i = 0; i < mArrayList.size(); i++) {
+                            Marker marker = new Marker();
+                            marker.setPosition(new LatLng((Double) mArrayList.get(i).get("lat"), (Double) mArrayList.get(i).get("lng")));
+                            marker.setIcon(OverlayImage.fromResource(R.drawable.ic_baseline_push_pin_24));
+                            marker.setMap(mNaverMap);
+                            int finalI = i;
+                            marker.setOnClickListener(overlay -> {
+                                Toast.makeText(MainActivity.this, mArrayList.get(finalI).get("user").toString(), Toast.LENGTH_SHORT).show();
+                                return true;
+                            });
+                            markerList.add(marker);
+                        }
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.w(TAG, "Error adding document", e);
+                    }
+                });
     }
 }
