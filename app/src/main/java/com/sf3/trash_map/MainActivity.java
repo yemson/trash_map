@@ -6,13 +6,18 @@ import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.FragmentManager;
 
 import android.Manifest;
+import android.app.Dialog;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,8 +28,11 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.protobuf.Type;
@@ -39,6 +47,8 @@ import com.naver.maps.map.overlay.Overlay;
 import com.naver.maps.map.overlay.OverlayImage;
 import com.naver.maps.map.util.FusedLocationSource;
 
+import org.w3c.dom.Text;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,12 +61,15 @@ import kotlin.collections.MapsKt;
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
     private static ArrayList<Map> mArrayList = new ArrayList<>();
     private static ArrayList<Marker> markerList = new ArrayList<>();
+    private static ArrayList<String> markerIDList = new ArrayList<>();
 
     private static final String TAG = "MainActivity";
 
     // [START declare_auth]
     private FirebaseAuth mAuth;
     // [END declare_auth]
+
+    private Dialog dialog;
 
     private FirebaseFirestore mFirestore;
 
@@ -69,6 +82,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private FusedLocationSource mLocationSource;
     private NaverMap mNaverMap;
 
+    private String markerID_n;
+
+    private Integer likeCountNum;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,6 +94,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Initialize Firebase Auth
         mAuth = FirebaseAuth.getInstance();
         // [END initialize_auth]
+
+        // 다이얼로그 밖 화면 흐리게
+        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
+        layoutParams.flags = WindowManager.LayoutParams.FLAG_DIM_BEHIND;
+        layoutParams.dimAmount = 0.8f;
+        getWindow().setAttributes(layoutParams);
+
+        // 다이얼로그
+        dialog = new Dialog(MainActivity.this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.activity_dialog);
 
         // 지도 객체 생성
         FragmentManager fm = getSupportFragmentManager();
@@ -156,6 +184,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 Map<String, Object> docData = new HashMap<>();
                 docData.put("user", currentUser.getUid());
+                docData.put("email", currentUser.getEmail());
                 docData.put("lat", naverMap.getCameraPosition().target.latitude);
                 docData.put("lng", naverMap.getCameraPosition().target.longitude);
 
@@ -165,6 +194,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             @Override
                             public void onSuccess(DocumentReference documentReference) {
                                 Log.d(TAG, "DocumentSnapshot added with ID: " + documentReference.getId());
+                                markerID_n = documentReference.getId();
                             }
                         })
                         .addOnFailureListener(new OnFailureListener() {
@@ -179,7 +209,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 marker.setIcon(OverlayImage.fromResource(R.drawable.ic_baseline_push_pin_24));
                 marker.setMap(mNaverMap);
                 marker.setOnClickListener(overlay -> {
-                    Toast.makeText(MainActivity.this, currentUser.getUid(), Toast.LENGTH_SHORT).show();
+                    //Toast.makeText(MainActivity.this, currentUser.getUid(), Toast.LENGTH_SHORT).show();
+                    showDialog(markerID_n);
                     return true;
                 });
                 markerList.add(marker);
@@ -269,8 +300,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     public void onComplete(@NonNull Task<QuerySnapshot> task) {
                         // Log.d(TAG, "DocumentSnapshot added with ID: " + task.getResult());
                         for (QueryDocumentSnapshot document : task.getResult()) {
-                            Log.d(TAG, document.getId() + " => " + document.getData());
+                            Log.d(TAG, document.getId() + " -> " + document.getData());
                             mArrayList.add(document.getData());
+                            markerIDList.add(document.getId());
                         }
 
                         for (int i = 0; i < mArrayList.size(); i++) {
@@ -280,7 +312,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             marker.setMap(mNaverMap);
                             int finalI = i;
                             marker.setOnClickListener(overlay -> {
-                                Toast.makeText(MainActivity.this, mArrayList.get(finalI).get("user").toString(), Toast.LENGTH_SHORT).show();
+                                //Toast.makeText(MainActivity.this, mArrayList.get(finalI).get("user").toString(), Toast.LENGTH_SHORT).show();
+                                showDialog(markerIDList.get(finalI).toString());
                                 return true;
                             });
                             markerList.add(marker);
@@ -293,5 +326,91 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         Log.w(TAG, "Error adding document", e);
                     }
                 });
+
+    }
+
+    public void showDialog(String markerID) {
+        FirebaseFirestore db = mFirestore.getInstance();
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        dialog.show();
+
+        TextView userName = dialog.findViewById(R.id.userName);
+        userName.setText(markerID);
+
+        DocumentReference docRef = db.collection("marker").document(markerID);
+        docRef.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot document = task.getResult();
+                    if (document.exists()) {
+                        Log.d(TAG, "DocumentSnapshot data: " + document.getData());
+                        userName.setText(document.getData().get("email").toString());
+                    } else {
+                        Log.d(TAG, "No such document");
+                    }
+                } else {
+                    Log.d(TAG, "get failed with ", task.getException());
+                }
+            }
+        });
+
+        TextView likeCount = dialog.findViewById(R.id.likeCount);
+        db.collection("marker")
+                .document(markerID)
+                .collection("like")
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        ArrayList<Map> likeCountList = new ArrayList<>();
+                        if (task.isSuccessful()) {
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                Log.d(TAG, document.getId() + " >> " + document.getData());
+                                likeCountList.add(document.getData());
+                            }
+                            //Log.d(TAG, String.valueOf(likeCountList.size()));
+                            likeCount.setText(String.valueOf(likeCountList.size()));
+                        } else {
+                            Log.d(TAG, "Error getting documents: ", task.getException());
+                        }
+                    }
+                });
+
+        ImageButton likeButton = dialog.findViewById(R.id.likeBtn);
+        likeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Map<String, Object> docData = new HashMap<>();
+                docData.put("user", currentUser.getUid());
+                db.collection("marker").document(markerID).collection("like")
+                        .add(docData)
+                        .addOnSuccessListener(new OnSuccessListener<DocumentReference>() {
+                            @Override
+                            public void onSuccess(DocumentReference documentReference) {
+                                Log.d(TAG, likeCount.getText().toString());
+                                likeCountNum = Integer.parseInt(likeCount.getText().toString());
+                                likeCountNum = likeCountNum + 1;
+                                markerID_n = documentReference.getId();
+                                likeCount.setText(likeCountNum.toString());
+                                Toast.makeText(MainActivity.this, "좋아요!", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                Log.w(TAG, "Error adding document", e);
+                            }
+                        });
+            }
+        });
+
+        Button closeButton = dialog.findViewById(R.id.closeBtn);
+        closeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dialog.dismiss();
+            }
+        });
     }
 }
